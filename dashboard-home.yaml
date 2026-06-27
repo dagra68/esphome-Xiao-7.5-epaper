@@ -46,7 +46,7 @@ captive_portal:
 
 deep_sleep:
   id: deep_sleep_1
-  run_duration: 1min
+  run_duration: 2min
   sleep_duration: 5min
 
 script:
@@ -68,9 +68,9 @@ interval:
                 ESP_LOGD("Display", "Updating Display...");
             - script.execute: update_display
             - lambda: "id(first_update_done) = true;"
-  - interval: 59s
-    then:
-      - logger.log: "Entering deep sleep now..."
+            - delay: 10s
+            - logger.log: "Entering deep sleep now..."
+            - deep_sleep.enter: deep_sleep_1
 
 time:
   - platform: homeassistant
