@@ -1,0 +1,85 @@
+# ============================================================
+# Home Assistant Template Sensors for dashboard-home.yaml
+# ============================================================
+# Add these to your Home Assistant configuration.yaml under
+# "template:" or as a separate file via "template: !include ha-templates.yaml"
+#
+# These sensors combine calendar events from multiple calendars
+# and format them for the ePaper display.
+# ============================================================
+
+template:
+  - trigger:
+      - platform: time_pattern
+        minutes: "/5"
+      - platform: homeassistant
+        event: start
+    action:
+      - service: calendar.list_events
+        target:
+          entity_id:
+            - calendar.lukas
+            - calendar.leonie
+            - calendar.familie
+        data:
+          duration:
+            hours: 24
+        response_variable: termine
+      - service: calendar.list_events
+        target:
+          entity_id:
+            - calendar.hoellersberg48_gmail_com
+        data:
+          duration:
+            days: 14
+        response_variable: muell
+    sensor:
+      - name: "Kalender Termin 1"
+        unique_id: kalender_termin_1
+        state: >
+          {% set all = termine.events | sort(attribute='start') %}
+          {% if all | length > 0 %}
+            {{ all[0].start | as_timestamp | timestamp_custom('%H:%M') }} {{ all[0].summary }}
+          {% else %}
+            none
+          {% endif %}
+
+      - name: "Kalender Termin 2"
+        unique_id: kalender_termin_2
+        state: >
+          {% set all = termine.events | sort(attribute='start') %}
+          {% if all | length > 1 %}
+            {{ all[1].start | as_timestamp | timestamp_custom('%H:%M') }} {{ all[1].summary }}
+          {% else %}
+            none
+          {% endif %}
+
+      - name: "Kalender Termin 3"
+        unique_id: kalender_termin_3
+        state: >
+          {% set all = termine.events | sort(attribute='start') %}
+          {% if all | length > 2 %}
+            {{ all[2].start | as_timestamp | timestamp_custom('%H:%M') }} {{ all[2].summary }}
+          {% else %}
+            none
+          {% endif %}
+
+      - name: "Muellabfuhr Naechster"
+        unique_id: muellabfuhr_naechster
+        state: >
+          {% set all = muell.events | sort(attribute='start') %}
+          {% if all | length > 0 %}
+            {{ all[0].start | as_timestamp | timestamp_custom('%a %d.%m') }} {{ all[0].summary }}
+          {% else %}
+            --
+          {% endif %}
+
+      - name: "Wetter Vorhersage Text"
+        unique_id: wetter_vorhersage_text
+        state: >
+          {% set forecast = state_attr('weather.home', 'forecast') %}
+          {% if forecast and forecast | length > 0 %}
+            {{ forecast[0].condition }} {{ forecast[0].temperature }}°C
+          {% else %}
+            {{ states('weather.home') }}
+          {% endif %}

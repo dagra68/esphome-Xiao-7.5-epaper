@@ -100,16 +100,17 @@ sensor:
     entity_id: sensor.ess_power_wallbox
     name: "Wallbox Leistung"
 
-  # --- Platzhalter: Wetter ---
-  # - platform: homeassistant
-  #   id: wetter_temperatur
-  #   entity_id: sensor.DEINE_WETTER_TEMPERATUR
-  #   name: "Wetter Temperatur"
+  - platform: homeassistant
+    id: wetter_temperatur
+    entity_id: weather.home
+    attribute: temperature
+    name: "Wetter Temperatur"
 
-  # - platform: homeassistant
-  #   id: wetter_wind
-  #   entity_id: sensor.DEINE_WIND_GESCHWINDIGKEIT
-  #   name: "Wind"
+  - platform: homeassistant
+    id: wetter_wind
+    entity_id: weather.home
+    attribute: wind_speed
+    name: "Wind"
 
 text_sensor:
   - platform: homeassistant
@@ -117,33 +118,35 @@ text_sensor:
     entity_id: sensor.wp_modus_text
     name: "Heizmodus"
 
-  # --- Platzhalter: Vorhersage ---
-  # - platform: homeassistant
-  #   id: wetter_vorhersage
-  #   entity_id: sensor.DEINE_WETTER_VORHERSAGE
-  #   name: "Vorhersage"
+  - platform: homeassistant
+    id: wetter_zustand
+    entity_id: weather.home
+    name: "Wetter Zustand"
 
-  # --- Platzhalter: Termine ---
-  # - platform: homeassistant
-  #   id: termin_1
-  #   entity_id: sensor.DEIN_KALENDER_TERMIN_1
-  #   name: "Termin 1"
+  - platform: homeassistant
+    id: wetter_vorhersage
+    entity_id: sensor.wetter_vorhersage_text
+    name: "Vorhersage"
 
-  # - platform: homeassistant
-  #   id: termin_2
-  #   entity_id: sensor.DEIN_KALENDER_TERMIN_2
-  #   name: "Termin 2"
+  - platform: homeassistant
+    id: termin_1
+    entity_id: sensor.kalender_termin_1
+    name: "Termin 1"
 
-  # - platform: homeassistant
-  #   id: termin_3
-  #   entity_id: sensor.DEIN_KALENDER_TERMIN_3
-  #   name: "Termin 3"
+  - platform: homeassistant
+    id: termin_2
+    entity_id: sensor.kalender_termin_2
+    name: "Termin 2"
 
-  # --- Platzhalter: Muellabfuhr ---
-  # - platform: homeassistant
-  #   id: muellabfuhr
-  #   entity_id: sensor.DEINE_MUELLABFUHR
-  #   name: "Muellabfuhr"
+  - platform: homeassistant
+    id: termin_3
+    entity_id: sensor.kalender_termin_3
+    name: "Termin 3"
+
+  - platform: homeassistant
+    id: muellabfuhr
+    entity_id: sensor.muellabfuhr_naechster
+    name: "Muellabfuhr"
 
 binary_sensor:
   - platform: homeassistant
@@ -304,7 +307,11 @@ display:
       y = 64;
       it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0590");
       it.print(x2 + 58, y, id(font_label), "Vorhersage");
-      it.print(x2 + 58, y + 28, id(font_tiny), "-- (Platzhalter)");
+      if (id(wetter_vorhersage).has_state()) {
+        it.print(x2 + 58, y + 28, id(font_tiny), id(wetter_vorhersage).state.c_str());
+      } else {
+        it.print(x2 + 58, y + 28, id(font_tiny), "--");
+      }
 
       it.filled_rectangle(x2, y + 72, 240, 1);
 
@@ -312,7 +319,13 @@ display:
       y = 142;
       it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0599");
       it.print(x2 + 58, y, id(font_label), "Wetter");
-      it.print(x2 + 58, y + 28, id(font_tiny), "-- (Platzhalter)");
+      if (id(wetter_zustand).has_state()) {
+        fval(id(wetter_temperatur).state, "%.1f °C", buf, sizeof(buf));
+        it.printf(x2 + 58, y + 28, id(font_tiny), "%s  %s",
+                  id(wetter_zustand).state.c_str(), buf);
+      } else {
+        it.print(x2 + 58, y + 28, id(font_tiny), "--");
+      }
 
       it.filled_rectangle(x2, y + 72, 240, 1);
 
@@ -329,7 +342,8 @@ display:
       y = 298;
       it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F059D");
       it.print(x2 + 58, y, id(font_label), "Wind");
-      it.print(x2 + 58, y + 28, id(font_tiny), "-- (Platzhalter)");
+      fval(id(wetter_wind).state, "%.0f km/h", buf, sizeof(buf));
+      it.print(x2 + 58, y + 28, id(font_value), buf);
 
       // ===== SPALTE 3 (rechts): Termine & Muellabfuhr =====
       int x3 = 545;
@@ -339,9 +353,23 @@ display:
       it.printf(x3 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0A02");
       it.print(x3 + 58, y, id(font_label), "Termine heute");
 
-      it.print(x3 + 12, y + 50, id(font_termin), "-- (Platzhalter)");
-      it.print(x3 + 12, y + 72, id(font_termin), "-- (Platzhalter)");
-      it.print(x3 + 12, y + 94, id(font_termin), "-- (Platzhalter)");
+      int ty = y + 50;
+      if (id(termin_1).has_state() && id(termin_1).state != "none") {
+        it.print(x3 + 12, ty, id(font_termin), id(termin_1).state.c_str());
+        ty += 22;
+      }
+      if (id(termin_2).has_state() && id(termin_2).state != "none") {
+        it.print(x3 + 12, ty, id(font_termin), id(termin_2).state.c_str());
+        ty += 22;
+      }
+      if (id(termin_3).has_state() && id(termin_3).state != "none") {
+        it.print(x3 + 12, ty, id(font_termin), id(termin_3).state.c_str());
+      }
+      if ((!id(termin_1).has_state() || id(termin_1).state == "none") &&
+          (!id(termin_2).has_state() || id(termin_2).state == "none") &&
+          (!id(termin_3).has_state() || id(termin_3).state == "none")) {
+        it.print(x3 + 12, y + 50, id(font_termin), "Keine Termine");
+      }
 
       it.filled_rectangle(x3, y + 240, 240, 1);
 
@@ -349,7 +377,11 @@ display:
       y = 316;
       it.printf(x3 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0F38");
       it.print(x3 + 58, y, id(font_label), "Muellabfuhr");
-      it.print(x3 + 58, y + 28, id(font_tiny), "-- (Platzhalter)");
+      if (id(muellabfuhr).has_state()) {
+        it.print(x3 + 58, y + 28, id(font_tiny), id(muellabfuhr).state.c_str());
+      } else {
+        it.print(x3 + 58, y + 28, id(font_tiny), "--");
+      }
 
       // ===== STATUSLEISTE =====
       it.filled_rectangle(0, 424, 800, 56);
