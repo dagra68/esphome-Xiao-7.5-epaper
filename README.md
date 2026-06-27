@@ -135,7 +135,7 @@ it.printf(col[0]+50, row[0]+72, id(font_icon_big),
 
 ## Display Layout
 
-![ePaper Dashboard](dashboard1.jpeg)
+![ePaper Dashboard](dashboard1.jpg)
 
 ## License
 
