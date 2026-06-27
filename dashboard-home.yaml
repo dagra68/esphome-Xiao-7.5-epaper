@@ -44,10 +44,10 @@ wifi:
 
 captive_portal:
 
-deep_sleep:
-  id: deep_sleep_1
-  run_duration: 2min
-  sleep_duration: 5min
+# deep_sleep:
+#   id: deep_sleep_1
+#   run_duration: 2min
+#   sleep_duration: 5min
 
 script:
   - id: update_display
@@ -69,8 +69,8 @@ interval:
             - script.execute: update_display
             - lambda: "id(first_update_done) = true;"
             - delay: 10s
-            - logger.log: "Entering deep sleep now..."
-            - deep_sleep.enter: deep_sleep_1
+            - logger.log: "Display update done."
+            # - deep_sleep.enter: deep_sleep_1
 
 time:
   - platform: homeassistant
