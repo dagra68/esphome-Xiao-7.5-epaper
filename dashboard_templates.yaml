@@ -2,7 +2,7 @@
 # Home Assistant Template Sensors for dashboard-home.yaml
 # ============================================================
 # Add these to your Home Assistant configuration.yaml under
-# "template:" or as a separate file via "template: !include ha-templates.yaml"
+# "template:" or as a separate file via "template: !include dashboard_templates.yaml"
 #
 # These sensors combine calendar events from multiple calendars
 # and format them for the ePaper display.
@@ -15,7 +15,7 @@ template:
       - platform: homeassistant
         event: start
     action:
-      - service: calendar.list_events
+      - action: calendar.get_events
         target:
           entity_id:
             - calendar.lukas
@@ -25,7 +25,7 @@ template:
           duration:
             hours: 24
         response_variable: termine
-      - service: calendar.list_events
+      - action: calendar.get_events
         target:
           entity_id:
             - calendar.hoellersberg48_gmail_com
@@ -37,9 +37,15 @@ template:
       - name: "Kalender Termin 1"
         unique_id: kalender_termin_1
         state: >
-          {% set all = termine.events | sort(attribute='start') %}
-          {% if all | length > 0 %}
-            {{ all[0].start | as_timestamp | timestamp_custom('%H:%M') }} {{ all[0].summary }}
+          {% set ns = namespace(all=[]) %}
+          {% for cal in ['calendar.lukas','calendar.leonie','calendar.familie'] %}
+            {% if cal in termine %}
+              {% set ns.all = ns.all + termine[cal].events %}
+            {% endif %}
+          {% endfor %}
+          {% set sorted = ns.all | sort(attribute='start') %}
+          {% if sorted | length > 0 %}
+            {{ sorted[0].start | as_timestamp | timestamp_custom('%H:%M') }} {{ sorted[0].summary }}
           {% else %}
             none
           {% endif %}
@@ -47,9 +53,15 @@ template:
       - name: "Kalender Termin 2"
         unique_id: kalender_termin_2
         state: >
-          {% set all = termine.events | sort(attribute='start') %}
-          {% if all | length > 1 %}
-            {{ all[1].start | as_timestamp | timestamp_custom('%H:%M') }} {{ all[1].summary }}
+          {% set ns = namespace(all=[]) %}
+          {% for cal in ['calendar.lukas','calendar.leonie','calendar.familie'] %}
+            {% if cal in termine %}
+              {% set ns.all = ns.all + termine[cal].events %}
+            {% endif %}
+          {% endfor %}
+          {% set sorted = ns.all | sort(attribute='start') %}
+          {% if sorted | length > 1 %}
+            {{ sorted[1].start | as_timestamp | timestamp_custom('%H:%M') }} {{ sorted[1].summary }}
           {% else %}
             none
           {% endif %}
@@ -57,9 +69,15 @@ template:
       - name: "Kalender Termin 3"
         unique_id: kalender_termin_3
         state: >
-          {% set all = termine.events | sort(attribute='start') %}
-          {% if all | length > 2 %}
-            {{ all[2].start | as_timestamp | timestamp_custom('%H:%M') }} {{ all[2].summary }}
+          {% set ns = namespace(all=[]) %}
+          {% for cal in ['calendar.lukas','calendar.leonie','calendar.familie'] %}
+            {% if cal in termine %}
+              {% set ns.all = ns.all + termine[cal].events %}
+            {% endif %}
+          {% endfor %}
+          {% set sorted = ns.all | sort(attribute='start') %}
+          {% if sorted | length > 2 %}
+            {{ sorted[2].start | as_timestamp | timestamp_custom('%H:%M') }} {{ sorted[2].summary }}
           {% else %}
             none
           {% endif %}
@@ -67,9 +85,9 @@ template:
       - name: "Muellabfuhr Naechster"
         unique_id: muellabfuhr_naechster
         state: >
-          {% set all = muell.events | sort(attribute='start') %}
-          {% if all | length > 0 %}
-            {{ all[0].start | as_timestamp | timestamp_custom('%a %d.%m') }} {{ all[0].summary }}
+          {% set events = muell['calendar.hoellersberg48_gmail_com'].events | sort(attribute='start') %}
+          {% if events | length > 0 %}
+            {{ events[0].start | as_timestamp | timestamp_custom('%a %d.%m') }} {{ events[0].summary }}
           {% else %}
             --
           {% endif %}
