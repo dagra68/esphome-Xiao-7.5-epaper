@@ -164,6 +164,11 @@ binary_sensor:
     entity_id: binary_sensor.fenster_og_alle
     name: "Fenster OG"
 
+  - platform: homeassistant
+    id: waermepumpe_an
+    entity_id: switch.pool_warmepumpe
+    name: "Pool Waermepumpe"
+
 font:
   - file: "gfonts://Montserrat@900"
     id: font_header
@@ -226,185 +231,177 @@ display:
       };
 
       char buf[24];
-      int y;
 
-      // ===== KOPFZEILE =====
-      it.filled_rectangle(0, 0, 800, 52);
-      it.strftime(16, 26, id(font_header), COLOR_OFF, TextAlign::CENTER_LEFT,
+      // Layout: 4 Spalten (A=0-199, B=200-399, C=400-599, D=600-799)
+      // 7 Zeilen + Header + Statusleiste
+      const int cA = 8;
+      const int cB = 208;
+      const int cC = 408;
+      const int cD = 608;
+      const int rh = 52;     // row height
+      const int hdr = 44;    // header height
+
+      // ===== ZEILE 1: KOPFZEILE (invertiert) =====
+      it.filled_rectangle(0, 0, 800, hdr);
+      it.strftime(12, hdr / 2, id(font_header), COLOR_OFF, TextAlign::CENTER_LEFT,
                    "%a %d.%m.%Y", id(homeassistant_time).now());
-      it.strftime(790, 26, id(font_header), COLOR_OFF, TextAlign::CENTER_RIGHT,
+      it.strftime(790, hdr / 2, id(font_header), COLOR_OFF, TextAlign::CENTER_RIGHT,
                    "Update %H:%M", id(homeassistant_time).now());
 
-      // ===== Trennlinie unter Header =====
-      it.filled_rectangle(0, 52, 800, 2);
+      // Trennlinie unter Header
+      it.filled_rectangle(0, hdr, 800, 2);
 
-      // Spalten-Trennlinien
-      it.filled_rectangle(265, 54, 2, 370);
-      it.filled_rectangle(532, 54, 2, 370);
+      // Spalten-Trennlinien (4 Spalten)
+      int content_top = hdr + 2;
+      int content_h = 370;
+      it.filled_rectangle(200, content_top, 1, content_h);
+      it.filled_rectangle(400, content_top, 1, content_h);
+      it.filled_rectangle(600, content_top, 1, content_h);
 
-      // ===== SPALTE 1 (links): Sensoren =====
-      int x1 = 12;
-      int icon_x = 42;
+      // Zeilen-Trennlinien (6 horizontale Linien fuer 7 Zeilen)
+      for (int i = 1; i <= 6; i++) {
+        int ly = content_top + i * rh;
+        if (i < 6) it.filled_rectangle(0, ly, 400, 1);
+      }
 
-      // -- Temp aussen --
-      y = 64;
-      it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F050F");
-      it.print(70, y, id(font_label), "Temp aussen");
+      // Zeilen y-Positionen
+      int row[7];
+      for (int i = 0; i < 7; i++) row[i] = content_top + 4 + i * rh;
+
+      // ===== SPALTE A =====
+
+      // Zeile 2: Temp aussen
+      it.print(cA, row[0], id(font_label), "Temp aussen");
       fval(id(aussen_temp).state, "%.1f °C", buf, sizeof(buf));
-      it.print(70, y + 28, id(font_value), buf);
+      it.print(cA, row[0] + 24, id(font_tiny), buf);
 
-      it.filled_rectangle(x1, y + 72, 240, 1);
+      // Zeile 3: (leer, Temp gehoert zu Zeile 2)
 
-      // -- SOC Haus --
-      y = 142;
-      it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F10A3");
-      it.print(70, y, id(font_label), "SOC Haus");
+      // Zeile 4: SOC Haus
+      it.print(cA, row[2], id(font_label), "SOC Haus");
       fval(id(soc_haus).state, "%.0f %%", buf, sizeof(buf));
-      it.print(70, y + 28, id(font_value), buf);
+      it.print(cA, row[2] + 24, id(font_tiny), buf);
 
-      it.filled_rectangle(x1, y + 72, 240, 1);
-
-      // -- SOC Auto --
-      y = 220;
-      it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F007D");
-      it.print(70, y, id(font_label), "SOC Auto");
+      // Zeile 5: SOC Auto
+      it.print(cA, row[3], id(font_label), "SOC Auto");
       fval(id(soc_auto).state, "%.0f %%", buf, sizeof(buf));
-      it.print(70, y + 28, id(font_value), buf);
+      it.print(cA, row[3] + 24, id(font_tiny), buf);
 
-      it.filled_rectangle(x1, y + 72, 240, 1);
-
-      // -- PV Produktion --
-      y = 298;
-      it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F1A73");
-      it.print(70, y, id(font_label), "PV Produktion");
+      // Zeile 6: PV Produktion
+      it.print(cA, row[4], id(font_label), "PV Produktion");
       fval(id(pv_produktion).state, "%.1f kWh", buf, sizeof(buf));
-      it.print(70, y + 28, id(font_value), buf);
+      it.print(cA, row[4] + 24, id(font_tiny), buf);
 
-      it.filled_rectangle(x1, y + 72, 240, 1);
-
-      // -- Alarm (offene Fenster) --
-      y = 376;
+      // Zeile 7: Alarm (offene Fenster) - volle Breite Spalte A+B
+      int alarm_y = row[5] + rh;
+      it.filled_rectangle(0, alarm_y - 4, 400, 1);
       bool eg = id(fenster_eg).state;
       bool og = id(fenster_og).state;
+      it.printf(cA + 18, alarm_y + 18, id(font_icon), TextAlign::CENTER,
+                (eg || og) ? "\U000F0FC6" : "\U000F11DB");
       if (eg && og) {
-        it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0FC6");
-        it.print(70, y + 8, id(font_label), "Fenster EG & OG");
+        it.print(cA + 40, alarm_y + 4, id(font_label), "Fenster EG & OG");
       } else if (eg) {
-        it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0FC6");
-        it.print(70, y + 8, id(font_label), "Fenster EG offen");
+        it.print(cA + 40, alarm_y + 4, id(font_label), "Fenster EG offen");
       } else if (og) {
-        it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0FC6");
-        it.print(70, y + 8, id(font_label), "Fenster OG offen");
+        it.print(cA + 40, alarm_y + 4, id(font_label), "Fenster OG offen");
       } else {
-        it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F11DB");
-        it.print(70, y + 8, id(font_label), "Alle Fenster zu");
+        it.print(cA + 40, alarm_y + 4, id(font_label), "Alle Fenster zu");
       }
 
-      // ===== SPALTE 2 (mitte): Wetter =====
-      int x2 = 278;
+      // ===== SPALTE B =====
 
-      // -- Vorhersage --
-      y = 64;
-      it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0590");
-      it.print(x2 + 58, y, id(font_label), "Vorhersage");
+      // Zeile 2: Vorhersage
+      it.print(cB, row[0], id(font_label), "Vorhersage");
       if (id(wetter_vorhersage).has_state()) {
-        it.print(x2 + 58, y + 28, id(font_tiny), id(wetter_vorhersage).state.c_str());
-      } else {
-        it.print(x2 + 58, y + 28, id(font_tiny), "--");
+        it.print(cB, row[0] + 24, id(font_tiny), id(wetter_vorhersage).state.c_str());
       }
 
-      it.filled_rectangle(x2, y + 72, 240, 1);
-
-      // -- Wetter / Temperatur --
-      y = 142;
-      it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0599");
-      it.print(x2 + 58, y, id(font_label), "Wetter");
+      // Zeile 3: Wetter
+      it.print(cB, row[1], id(font_label), "Wetter");
       if (id(wetter_zustand).has_state()) {
-        fval(id(wetter_temperatur).state, "%.1f °C", buf, sizeof(buf));
-        it.printf(x2 + 58, y + 28, id(font_tiny), "%s  %s",
-                  id(wetter_zustand).state.c_str(), buf);
-      } else {
-        it.print(x2 + 58, y + 28, id(font_tiny), "--");
+        it.print(cB, row[1] + 24, id(font_tiny), id(wetter_zustand).state.c_str());
       }
 
-      it.filled_rectangle(x2, y + 72, 240, 1);
+      // Zeile 4: Temperatur
+      it.print(cB, row[2], id(font_label), "Temperatur");
+      fval(id(wetter_temperatur).state, "%.1f °C", buf, sizeof(buf));
+      it.print(cB, row[2] + 24, id(font_tiny), buf);
 
-      // -- PV Produktion (Spalte 2) --
-      y = 220;
-      it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F1A73");
-      it.print(x2 + 58, y, id(font_label), "PV Produktion");
+      // Zeile 5: PV Produktion
+      it.print(cB, row[3], id(font_label), "PV Produktion");
       fval(id(pv_produktion).state, "%.1f kWh", buf, sizeof(buf));
-      it.print(x2 + 58, y + 28, id(font_value), buf);
+      it.print(cB, row[3] + 24, id(font_tiny), buf);
 
-      it.filled_rectangle(x2, y + 72, 240, 1);
-
-      // -- Wind --
-      y = 298;
-      it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F059D");
-      it.print(x2 + 58, y, id(font_label), "Wind");
+      // Zeile 6: Wind
+      it.print(cB, row[4], id(font_label), "Wind");
       fval(id(wetter_wind).state, "%.0f km/h", buf, sizeof(buf));
-      it.print(x2 + 58, y + 28, id(font_value), buf);
+      it.print(cB, row[4] + 24, id(font_tiny), buf);
 
-      // ===== SPALTE 3 (rechts): Termine & Muellabfuhr =====
-      int x3 = 545;
+      // ===== SPALTE C+D: Termine =====
 
-      // -- Termine von heute --
-      y = 64;
-      it.printf(x3 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0A02");
-      it.print(x3 + 58, y, id(font_label), "Termine heute");
+      // Trennlinie Termine-Bereich (rechte Haelfte eigenes Grid)
+      it.print(cC, row[0], id(font_label), "Termine von heute");
+      it.print(cC, row[0] + 24, id(font_tiny), "Liste Uhrzeit +Termine");
 
-      int ty = y + 50;
+      // Terminliste ab Zeile 3
+      int ty = row[1] + 4;
       if (id(termin_1).has_state() && id(termin_1).state != "none") {
-        it.print(x3 + 12, ty, id(font_termin), id(termin_1).state.c_str());
-        ty += 22;
+        it.print(cC, ty, id(font_termin), id(termin_1).state.c_str());
+        ty += 20;
       }
       if (id(termin_2).has_state() && id(termin_2).state != "none") {
-        it.print(x3 + 12, ty, id(font_termin), id(termin_2).state.c_str());
-        ty += 22;
+        it.print(cC, ty, id(font_termin), id(termin_2).state.c_str());
+        ty += 20;
       }
       if (id(termin_3).has_state() && id(termin_3).state != "none") {
-        it.print(x3 + 12, ty, id(font_termin), id(termin_3).state.c_str());
+        it.print(cC, ty, id(font_termin), id(termin_3).state.c_str());
       }
       if ((!id(termin_1).has_state() || id(termin_1).state == "none") &&
           (!id(termin_2).has_state() || id(termin_2).state == "none") &&
           (!id(termin_3).has_state() || id(termin_3).state == "none")) {
-        it.print(x3 + 12, y + 50, id(font_termin), "Keine Termine");
+        it.print(cC, row[1] + 4, id(font_termin), "Keine Termine heute");
       }
 
-      it.filled_rectangle(x3, y + 240, 240, 1);
-
-      // -- Muellabfuhr --
-      y = 316;
-      it.printf(x3 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0F38");
-      it.print(x3 + 58, y, id(font_label), "Muellabfuhr");
+      // Muellabfuhr (Spalte D, unterer Bereich)
+      int muell_y = row[4];
+      it.filled_rectangle(400, muell_y - 4, 400, 1);
+      it.printf(cD + 18, muell_y + 18, id(font_icon), TextAlign::CENTER, "\U000F0F38");
+      it.print(cD + 40, muell_y, id(font_label), "Muellabfuhr");
       if (id(muellabfuhr).has_state()) {
-        it.print(x3 + 58, y + 28, id(font_tiny), id(muellabfuhr).state.c_str());
-      } else {
-        it.print(x3 + 58, y + 28, id(font_tiny), "--");
+        it.print(cD + 40, muell_y + 24, id(font_tiny), id(muellabfuhr).state.c_str());
       }
 
-      // ===== STATUSLEISTE =====
-      it.filled_rectangle(0, 424, 800, 56);
-      it.filled_rectangle(266, 428, 2, 46, COLOR_ON);
-      it.filled_rectangle(533, 428, 2, 46, COLOR_ON);
+      // ===== STATUSLEISTE (4 Felder) =====
+      int sb = 424;
+      it.filled_rectangle(0, sb, 800, 56);
+      it.filled_rectangle(200, sb + 4, 1, 48, COLOR_ON);
+      it.filled_rectangle(400, sb + 4, 1, 48, COLOR_ON);
+      it.filled_rectangle(600, sb + 4, 1, 48, COLOR_ON);
 
-      // -- Heizmodus --
-      it.printf(36, 450, id(font_icon), COLOR_OFF, TextAlign::CENTER, "\U000F1A44");
-      it.print(66, 430, id(font_status), COLOR_OFF, "Heizmodus");
+      // Heizmodus
+      it.printf(16, sb + 28, id(font_icon), COLOR_OFF, TextAlign::CENTER_LEFT, "\U000F1A44");
+      it.print(50, sb + 6, id(font_status), COLOR_OFF, "Heizmodus");
       if (id(heizmodus).has_state()) {
-        it.print(66, 452, id(font_status), COLOR_OFF, id(heizmodus).state.c_str());
+        it.print(50, sb + 30, id(font_status), COLOR_OFF, id(heizmodus).state.c_str());
       } else {
-        it.print(66, 452, id(font_status), COLOR_OFF, "--");
+        it.print(50, sb + 30, id(font_status), COLOR_OFF, "--");
       }
 
-      // -- Pool ein/aus --
-      it.printf(303, 450, id(font_icon), COLOR_OFF, TextAlign::CENTER, "\U000F1402");
-      it.print(333, 430, id(font_status), COLOR_OFF, "Pool");
-      it.print(333, 452, id(font_status), COLOR_OFF,
+      // Poolpumpe Ein/Aus
+      it.printf(216, sb + 28, id(font_icon), COLOR_OFF, TextAlign::CENTER_LEFT, "\U000F1402");
+      it.print(250, sb + 6, id(font_status), COLOR_OFF, "Poolpumpe");
+      it.print(250, sb + 30, id(font_status), COLOR_OFF,
                id(poolpumpe_an).state ? "EIN" : "AUS");
 
-      // -- Auto laden --
-      it.printf(570, 450, id(font_icon), COLOR_OFF, TextAlign::CENTER, "\U000F0EBB");
-      it.print(600, 430, id(font_status), COLOR_OFF, "Auto laden");
+      // Pool WP Ein/Aus
+      it.printf(416, sb + 28, id(font_icon), COLOR_OFF, TextAlign::CENTER_LEFT, "\U000F1A44");
+      it.print(450, sb + 6, id(font_status), COLOR_OFF, "Pool WP");
+      it.print(450, sb + 30, id(font_status), COLOR_OFF,
+               id(waermepumpe_an).state ? "EIN" : "AUS");
+
+      // Auto laden
+      it.printf(616, sb + 28, id(font_icon), COLOR_OFF, TextAlign::CENTER_LEFT, "\U000F0EBB");
+      it.print(650, sb + 6, id(font_status), COLOR_OFF, "Auto laden");
       fval(id(wallbox_power).state, "%.0f W", buf, sizeof(buf));
-      it.print(600, 452, id(font_status), COLOR_OFF, buf);
+      it.print(650, sb + 30, id(font_status), COLOR_OFF, buf);
