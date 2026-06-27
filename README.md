@@ -2,6 +2,9 @@
 
 An ESPHome configuration for a **Seeed Studio Xiao ESP32-C3** driving a **Waveshare 7.5" e-ink display** (800×480, model `7.50inv2`). It pulls sensor data from Home Assistant and renders a grid-based dashboard with icons, values, and a status bar — then goes to deep sleep to save power.
 
+- **Buy the display:** [Seeed Studio Shop](https://www.seeedstudio.com/XIAO-7-5-ePaper-Panel-p-6416.html)
+- **Documentation / Wiki:** [Seeed Studio Wiki](https://wiki.seeedstudio.com/xiao_075inch_epaper_panel/)
+
 ## Features
 
 - 6 sensor tiles in a 3×2 grid (Pool Temp, Redox, pH, Outdoor Temp, UV Index, PV Production)
