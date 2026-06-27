@@ -135,19 +135,7 @@ it.printf(col[0]+50, row[0]+72, id(font_icon_big),
 
 ## Display Layout
 
-```
-┌──────────────────────────────────────────────┐
-│              Pool & Garten          HH:MM    │  ← Header (inverted)
-├──────────────┬──────────────┬────────────────┤
-│  Pool Temp   │    Redox     │    pH-Wert     │
-│  🌡️ 28.5°C  │  ⚗️ 720 mV  │   🧪 7.2 pH   │  ← Row 0
-├──────────────┼──────────────┼────────────────┤
-│ Aussen Temp  │  UV-Index    │   PV Heute     │
-│  🌡️ 22.3°C  │  ☀️ 6.5 UV  │  🔆 12.4 kWh  │  ← Row 1
-├──────────────┴──────────────┴────────────────┤
-│ 💧 Poolpumpe │ ♨️ Waermepumpe │ ⚡ 3.42 kWh  │  ← Status bar (inverted)
-└──────────────────────────────────────────────┘
-```
+![ePaper Dashboard](display.png)
 
 ## License
 
