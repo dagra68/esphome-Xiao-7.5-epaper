@@ -1,0 +1,378 @@
+esphome:
+  name: dashboard-home
+  friendly_name: Dashboard Home
+
+esp32:
+  variant: esp32c3
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_key
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+globals:
+  - id: wifi_status
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: first_update_done
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  on_connect:
+    then:
+      - lambda: |-
+          id(wifi_status) = 1;
+  on_disconnect:
+    then:
+      - lambda: |-
+          id(wifi_status) = 0;
+
+captive_portal:
+
+deep_sleep:
+  id: deep_sleep_1
+  run_duration: 1min
+  sleep_duration: 5min
+
+script:
+  - id: update_display
+    then:
+      - component.update: my_display
+
+interval:
+  - interval: 10s
+    then:
+      - if:
+          condition:
+            and:
+              - wifi.connected:
+              - lambda: "return !isnan(id(aussen_temp).state);"
+              - lambda: "return !id(first_update_done);"
+          then:
+            - lambda: |-
+                ESP_LOGD("Display", "Updating Display...");
+            - script.execute: update_display
+            - lambda: "id(first_update_done) = true;"
+  - interval: 59s
+    then:
+      - logger.log: "Entering deep sleep now..."
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+# --- Sensoren ---
+
+sensor:
+  - platform: homeassistant
+    id: aussen_temp
+    entity_id: sensor.gw1100a_v2_2_3_outdoor_temperature
+    name: "Aussentemperatur"
+
+  - platform: homeassistant
+    id: soc_haus
+    entity_id: sensor.ess_akku_soc
+    name: "SOC Haus"
+
+  - platform: homeassistant
+    id: soc_auto
+    entity_id: sensor.tesla_model_y_battery
+    name: "SOC Auto"
+
+  - platform: homeassistant
+    id: pv_produktion
+    entity_id: sensor.energy_solar_daily
+    name: "PV Produktion"
+
+  - platform: homeassistant
+    id: wallbox_power
+    entity_id: sensor.ess_power_wallbox
+    name: "Wallbox Leistung"
+
+  # --- Platzhalter: Wetter ---
+  # - platform: homeassistant
+  #   id: wetter_temperatur
+  #   entity_id: sensor.DEINE_WETTER_TEMPERATUR
+  #   name: "Wetter Temperatur"
+
+  # - platform: homeassistant
+  #   id: wetter_wind
+  #   entity_id: sensor.DEINE_WIND_GESCHWINDIGKEIT
+  #   name: "Wind"
+
+text_sensor:
+  - platform: homeassistant
+    id: heizmodus
+    entity_id: sensor.wp_modus_text
+    name: "Heizmodus"
+
+  # --- Platzhalter: Vorhersage ---
+  # - platform: homeassistant
+  #   id: wetter_vorhersage
+  #   entity_id: sensor.DEINE_WETTER_VORHERSAGE
+  #   name: "Vorhersage"
+
+  # --- Platzhalter: Termine ---
+  # - platform: homeassistant
+  #   id: termin_1
+  #   entity_id: sensor.DEIN_KALENDER_TERMIN_1
+  #   name: "Termin 1"
+
+  # - platform: homeassistant
+  #   id: termin_2
+  #   entity_id: sensor.DEIN_KALENDER_TERMIN_2
+  #   name: "Termin 2"
+
+  # - platform: homeassistant
+  #   id: termin_3
+  #   entity_id: sensor.DEIN_KALENDER_TERMIN_3
+  #   name: "Termin 3"
+
+  # --- Platzhalter: Muellabfuhr ---
+  # - platform: homeassistant
+  #   id: muellabfuhr
+  #   entity_id: sensor.DEINE_MUELLABFUHR
+  #   name: "Muellabfuhr"
+
+binary_sensor:
+  - platform: homeassistant
+    id: poolpumpe_an
+    entity_id: switch.pool_umwalzpumpe
+    name: "Poolpumpe"
+
+  - platform: homeassistant
+    id: fenster_eg
+    entity_id: binary_sensor.fenster_eg_alle
+    name: "Fenster EG"
+
+  - platform: homeassistant
+    id: fenster_og
+    entity_id: binary_sensor.fenster_og_alle
+    name: "Fenster OG"
+
+font:
+  - file: "gfonts://Montserrat@900"
+    id: font_header
+    size: 26
+  - file: "gfonts://Montserrat@900"
+    id: font_label
+    size: 22
+  - file: "gfonts://Montserrat@900"
+    id: font_value
+    size: 36
+  - file: "gfonts://Montserrat@900"
+    id: font_status
+    size: 20
+  - file: "gfonts://Montserrat@900"
+    id: font_tiny
+    size: 18
+  - file: "gfonts://Montserrat@900"
+    id: font_termin
+    size: 16
+
+  - file: "fonts/materialdesignicons-webfont.ttf"
+    id: font_icon
+    size: 36
+    glyphs:
+      - "\U000F050F"   # thermometer
+      - "\U000F10A3"   # home-battery
+      - "\U000F007D"   # car-battery (Tesla SOC)
+      - "\U000F1A73"   # solar-power (PV)
+      - "\U000F0590"   # weather-cloudy
+      - "\U000F0599"   # weather-sunny
+      - "\U000F059D"   # weather-windy
+      - "\U000F0A02"   # calendar-today
+      - "\U000F0F38"   # trash-can (Muellabfuhr)
+      - "\U000F1402"   # pump (Pool)
+      - "\U000F1A44"   # heat-pump (Heizmodus)
+      - "\U000F0EBB"   # ev-station (Auto laden)
+      - "\U000F0FC6"   # window-open
+      - "\U000F11DB"   # window-closed
+      - "\U000F051F"   # wifi-off
+
+spi:
+  clk_pin: GPIO8
+  mosi_pin: GPIO10
+
+display:
+  - platform: waveshare_epaper
+    id: my_display
+    cs_pin: GPIO3
+    dc_pin: GPIO5
+    busy_pin:
+      number: GPIO4
+      inverted: true
+    reset_pin: GPIO2
+    model: 7.50inv2
+    update_interval: 50s
+    lambda: |-
+      auto fval = [](float v, const char* fmt, char* buf, size_t sz) {
+        if (!isnan(v)) snprintf(buf, sz, fmt, v);
+        else           snprintf(buf, sz, "--");
+      };
+
+      char buf[24];
+      int y;
+
+      // ===== KOPFZEILE =====
+      it.filled_rectangle(0, 0, 800, 52);
+      it.strftime(16, 26, id(font_header), COLOR_OFF, TextAlign::CENTER_LEFT,
+                   "%a %d.%m.%Y", id(homeassistant_time).now());
+      it.strftime(790, 26, id(font_header), COLOR_OFF, TextAlign::CENTER_RIGHT,
+                   "Update %H:%M", id(homeassistant_time).now());
+
+      // ===== Trennlinie unter Header =====
+      it.filled_rectangle(0, 52, 800, 2);
+
+      // Spalten-Trennlinien
+      it.filled_rectangle(265, 54, 2, 370);
+      it.filled_rectangle(532, 54, 2, 370);
+
+      // ===== SPALTE 1 (links): Sensoren =====
+      int x1 = 12;
+      int icon_x = 42;
+
+      // -- Temp aussen --
+      y = 64;
+      it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F050F");
+      it.print(70, y, id(font_label), "Temp aussen");
+      fval(id(aussen_temp).state, "%.1f °C", buf, sizeof(buf));
+      it.print(70, y + 28, id(font_value), buf);
+
+      it.filled_rectangle(x1, y + 72, 240, 1);
+
+      // -- SOC Haus --
+      y = 142;
+      it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F10A3");
+      it.print(70, y, id(font_label), "SOC Haus");
+      fval(id(soc_haus).state, "%.0f %%", buf, sizeof(buf));
+      it.print(70, y + 28, id(font_value), buf);
+
+      it.filled_rectangle(x1, y + 72, 240, 1);
+
+      // -- SOC Auto --
+      y = 220;
+      it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F007D");
+      it.print(70, y, id(font_label), "SOC Auto");
+      fval(id(soc_auto).state, "%.0f %%", buf, sizeof(buf));
+      it.print(70, y + 28, id(font_value), buf);
+
+      it.filled_rectangle(x1, y + 72, 240, 1);
+
+      // -- PV Produktion --
+      y = 298;
+      it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F1A73");
+      it.print(70, y, id(font_label), "PV Produktion");
+      fval(id(pv_produktion).state, "%.1f kWh", buf, sizeof(buf));
+      it.print(70, y + 28, id(font_value), buf);
+
+      it.filled_rectangle(x1, y + 72, 240, 1);
+
+      // -- Alarm (offene Fenster) --
+      y = 376;
+      bool eg = id(fenster_eg).state;
+      bool og = id(fenster_og).state;
+      if (eg && og) {
+        it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0FC6");
+        it.print(70, y + 8, id(font_label), "Fenster EG & OG");
+      } else if (eg) {
+        it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0FC6");
+        it.print(70, y + 8, id(font_label), "Fenster EG offen");
+      } else if (og) {
+        it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0FC6");
+        it.print(70, y + 8, id(font_label), "Fenster OG offen");
+      } else {
+        it.printf(icon_x, y + 20, id(font_icon), TextAlign::CENTER, "\U000F11DB");
+        it.print(70, y + 8, id(font_label), "Alle Fenster zu");
+      }
+
+      // ===== SPALTE 2 (mitte): Wetter =====
+      int x2 = 278;
+
+      // -- Vorhersage --
+      y = 64;
+      it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0590");
+      it.print(x2 + 58, y, id(font_label), "Vorhersage");
+      it.print(x2 + 58, y + 28, id(font_tiny), "-- (Platzhalter)");
+
+      it.filled_rectangle(x2, y + 72, 240, 1);
+
+      // -- Wetter / Temperatur --
+      y = 142;
+      it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0599");
+      it.print(x2 + 58, y, id(font_label), "Wetter");
+      it.print(x2 + 58, y + 28, id(font_tiny), "-- (Platzhalter)");
+
+      it.filled_rectangle(x2, y + 72, 240, 1);
+
+      // -- PV Produktion (Spalte 2) --
+      y = 220;
+      it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F1A73");
+      it.print(x2 + 58, y, id(font_label), "PV Produktion");
+      fval(id(pv_produktion).state, "%.1f kWh", buf, sizeof(buf));
+      it.print(x2 + 58, y + 28, id(font_value), buf);
+
+      it.filled_rectangle(x2, y + 72, 240, 1);
+
+      // -- Wind --
+      y = 298;
+      it.printf(x2 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F059D");
+      it.print(x2 + 58, y, id(font_label), "Wind");
+      it.print(x2 + 58, y + 28, id(font_tiny), "-- (Platzhalter)");
+
+      // ===== SPALTE 3 (rechts): Termine & Muellabfuhr =====
+      int x3 = 545;
+
+      // -- Termine von heute --
+      y = 64;
+      it.printf(x3 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0A02");
+      it.print(x3 + 58, y, id(font_label), "Termine heute");
+
+      it.print(x3 + 12, y + 50, id(font_termin), "-- (Platzhalter)");
+      it.print(x3 + 12, y + 72, id(font_termin), "-- (Platzhalter)");
+      it.print(x3 + 12, y + 94, id(font_termin), "-- (Platzhalter)");
+
+      it.filled_rectangle(x3, y + 240, 240, 1);
+
+      // -- Muellabfuhr --
+      y = 316;
+      it.printf(x3 + 30, y + 20, id(font_icon), TextAlign::CENTER, "\U000F0F38");
+      it.print(x3 + 58, y, id(font_label), "Muellabfuhr");
+      it.print(x3 + 58, y + 28, id(font_tiny), "-- (Platzhalter)");
+
+      // ===== STATUSLEISTE =====
+      it.filled_rectangle(0, 424, 800, 56);
+      it.filled_rectangle(266, 428, 2, 46, COLOR_ON);
+      it.filled_rectangle(533, 428, 2, 46, COLOR_ON);
+
+      // -- Heizmodus --
+      it.printf(36, 450, id(font_icon), COLOR_OFF, TextAlign::CENTER, "\U000F1A44");
+      it.print(66, 430, id(font_status), COLOR_OFF, "Heizmodus");
+      if (id(heizmodus).has_state()) {
+        it.print(66, 452, id(font_status), COLOR_OFF, id(heizmodus).state.c_str());
+      } else {
+        it.print(66, 452, id(font_status), COLOR_OFF, "--");
+      }
+
+      // -- Pool ein/aus --
+      it.printf(303, 450, id(font_icon), COLOR_OFF, TextAlign::CENTER, "\U000F1402");
+      it.print(333, 430, id(font_status), COLOR_OFF, "Pool");
+      it.print(333, 452, id(font_status), COLOR_OFF,
+               id(poolpumpe_an).state ? "EIN" : "AUS");
+
+      // -- Auto laden --
+      it.printf(570, 450, id(font_icon), COLOR_OFF, TextAlign::CENTER, "\U000F0EBB");
+      it.print(600, 430, id(font_status), COLOR_OFF, "Auto laden");
+      fval(id(wallbox_power).state, "%.0f W", buf, sizeof(buf));
+      it.print(600, 452, id(font_status), COLOR_OFF, buf);

@@ -140,6 +140,59 @@ it.printf(col[0]+50, row[0]+72, id(font_icon_big),
 
 ![ePaper Dashboard](dashboard1.jpg)
 
+---
+
+## Variant 2: Home Dashboard (`dashboard-home.yaml`)
+
+A second dashboard layout focused on home automation: energy storage, weather, calendar, and window alerts.
+
+### Layout
+
+| Column 1 (left) | Column 2 (middle) | Column 3 (right) |
+|---|---|---|
+| Temp aussen | Vorhersage | Termine heute |
+| SOC Haus | Wetter / Temperatur | (Terminliste) |
+| SOC Auto | PV Produktion | |
+| PV Produktion | Wind | Muellabfuhr |
+| Alarm (Fenster) | | |
+
+**Status bar:** Heizmodus | Pool ein/aus | Auto laden
+
+### Entities used
+
+| Tile | Entity ID | Type |
+|------|-----------|------|
+| Temp aussen | `sensor.gw1100a_v2_2_3_outdoor_temperature` | sensor |
+| SOC Haus | `sensor.ess_akku_soc` | sensor |
+| SOC Auto | `sensor.tesla_model_y_battery` | sensor |
+| PV Produktion | `sensor.energy_solar_daily` | sensor |
+| Fenster EG | `binary_sensor.fenster_eg_alle` | binary_sensor |
+| Fenster OG | `binary_sensor.fenster_og_alle` | binary_sensor |
+| Heizmodus | `sensor.wp_modus_text` | text_sensor |
+| Pool | `switch.pool_umwalzpumpe` | binary_sensor |
+| Auto laden | `sensor.ess_power_wallbox` | sensor |
+
+### Placeholders (TODO)
+
+The following tiles are included in the layout but need your entity IDs. Search for `Platzhalter` in the YAML to find and replace them:
+
+- **Vorhersage** — weather forecast text
+- **Wetter / Temperatur** — weather condition + temperature
+- **Wind** — wind speed
+- **Termine heute** — calendar entries (up to 3)
+- **Muellabfuhr** — waste collection schedule
+
+### Window alarm logic
+
+The display shows the window status based on two binary sensors:
+
+| `fenster_eg_alle` | `fenster_og_alle` | Display shows |
+|---|---|---|
+| on | on | "Fenster EG & OG" |
+| on | off | "Fenster EG offen" |
+| off | on | "Fenster OG offen" |
+| off | off | "Alle Fenster zu" |
+
 ## License
 
 Feel free to use and adapt this configuration for your own ePaper dashboard.
