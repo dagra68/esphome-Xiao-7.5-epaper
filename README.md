@@ -5,7 +5,9 @@ An ESPHome configuration for a **Seeed Studio Xiao ESP32-C3** driving a **Wavesh
 - **Buy the display:** [Seeed Studio Shop](https://www.seeedstudio.com/XIAO-7-5-ePaper-Panel-p-6416.html)
 - **Documentation / Wiki:** [Seeed Studio Wiki](https://wiki.seeedstudio.com/xiao_075inch_epaper_panel/)
 
-## Features
+## Variant 1: Pool Dashboard (`dashboard-pool.yaml`)
+
+### Features
 
 - 6 sensor tiles in a 3×2 grid (Pool Temp, Redox, pH, Outdoor Temp, UV Index, PV Production)
 - Status bar with pump states and daily energy consumption
