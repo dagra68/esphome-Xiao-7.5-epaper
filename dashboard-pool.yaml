@@ -48,22 +48,43 @@ deep_sleep:
 script:
   - id: update_display
     then:
+      - lambda: |-
+          ESP_LOGD("Display", "Updating Display...");
+          id(first_update_done) = true;
       - component.update: my_display
 
+# Das Display wird NICHT automatisch aktualisiert (update_interval: never).
+# Pro Wachphase gibt es genau einen Refresh, und nur wenn alle Werte von
+# Home Assistant vorliegen. Sonst bleibt das letzte gueltige Bild stehen.
 interval:
-  - interval: 10s
+  - interval: 2s
     then:
       - if:
           condition:
             and:
               - wifi.connected:
-              - lambda: "return !isnan(id(pool_temp).state);"
-              - lambda: "return !id(first_update_done);"
+              - api.connected:
+              - lambda: |-
+                  if (id(first_update_done)) return false;
+                  if (!id(homeassistant_time).now().is_valid()) return false;
+
+                  // Zahlenwerte: muessen gueltig sein (nicht NaN)
+                  if (isnan(id(pool_temp).state) ||
+                      isnan(id(pool_redox).state) ||
+                      isnan(id(pool_ph).state) ||
+                      isnan(id(energie_pool_daily).state) ||
+                      isnan(id(aussen_temp).state) ||
+                      isnan(id(uv_wert).state) ||
+                      isnan(id(pv_produktion).state)) {
+                    ESP_LOGD("Display", "Warte auf Sensorwerte...");
+                    return false;
+                  }
+
+                  // Schaltzustaende: muessen empfangen worden sein
+                  return id(poolpumpe_an).has_state() &&
+                         id(waermepumpe_an).has_state();
           then:
-            - lambda: |-
-                ESP_LOGD("Display", "Updating Display...");
             - script.execute: update_display
-            - lambda: "id(first_update_done) = true;"
   - interval: 59s
     then:
       - logger.log: "Entering deep sleep now..."
@@ -166,7 +187,7 @@ display:
       inverted: true
     reset_pin: GPIO2
     model: 7.50inv2
-    update_interval: 50s
+    update_interval: never
     lambda: |-
       auto fval = [](float v, const char* fmt, char* buf, size_t sz) {
         if (!isnan(v)) snprintf(buf, sz, fmt, v);

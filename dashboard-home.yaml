@@ -29,6 +29,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: "false"
+  - id: last_update_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
 
 wifi:
   ssid: !secret wifi_ssid
@@ -52,25 +56,60 @@ captive_portal:
 script:
   - id: update_display
     then:
+      - lambda: |-
+          ESP_LOGD("Display", "Updating Display...");
+          id(first_update_done) = true;
+          id(last_update_ms) = millis();
       - component.update: my_display
 
+# Das Display wird NICHT automatisch aktualisiert (update_interval: never).
+# Ein Refresh erfolgt nur, wenn alle Werte von Home Assistant vorliegen:
+# sofort nach dem Start sobald alles da ist, danach alle 60s.
+# Fehlt ein Wert, bleibt das letzte gueltige Bild stehen.
 interval:
-  - interval: 10s
+  - interval: 5s
     then:
       - if:
           condition:
             and:
               - wifi.connected:
-              - lambda: "return !isnan(id(aussen_temp).state);"
-              - lambda: "return !id(first_update_done);"
+              - api.connected:
+              - lambda: |-
+                  if (!id(homeassistant_time).now().is_valid()) return false;
+
+                  // Zahlenwerte: muessen gueltig sein (nicht NaN)
+                  if (isnan(id(aussen_temp).state) ||
+                      isnan(id(soc_haus).state) ||
+                      isnan(id(soc_auto).state) ||
+                      isnan(id(pv_produktion).state) ||
+                      isnan(id(wallbox_power).state) ||
+                      isnan(id(wetter_temperatur).state) ||
+                      isnan(id(wetter_wind).state)) {
+                    ESP_LOGD("Display", "Warte auf Sensorwerte...");
+                    return false;
+                  }
+
+                  // Texte und Schaltzustaende: muessen empfangen worden sein
+                  if (!id(heizmodus).has_state() ||
+                      !id(wetter_zustand).has_state() ||
+                      !id(wetter_vorhersage).has_state() ||
+                      !id(termin_1).has_state() ||
+                      !id(termin_2).has_state() ||
+                      !id(termin_3).has_state() ||
+                      !id(muellabfuhr).has_state() ||
+                      !id(poolpumpe_an).has_state() ||
+                      !id(waermepumpe_an).has_state() ||
+                      !id(fenster_eg).has_state() ||
+                      !id(fenster_og).has_state()) {
+                    ESP_LOGD("Display", "Warte auf Text-/Statuswerte...");
+                    return false;
+                  }
+
+                  // Erstes Update sofort, danach hoechstens alle 60s
+                  return !id(first_update_done) ||
+                         (millis() - id(last_update_ms)) >= 60000;
           then:
-            - lambda: |-
-                ESP_LOGD("Display", "Updating Display...");
             - script.execute: update_display
-            - lambda: "id(first_update_done) = true;"
-            - delay: 10s
-            - logger.log: "Display update done."
-            # - deep_sleep.enter: deep_sleep_1
 
 time:
   - platform: homeassistant
@@ -227,7 +266,7 @@ display:
       inverted: true
     reset_pin: GPIO2
     model: 7.50inv2
-    update_interval: 50s
+    update_interval: never
     lambda: |-
       auto fval = [](float v, const char* fmt, char* buf, size_t sz) {
         if (!isnan(v)) snprintf(buf, sz, fmt, v);
