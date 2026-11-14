@@ -63,9 +63,11 @@ script:
       - component.update: my_display
 
 # Das Display wird NICHT automatisch aktualisiert (update_interval: never).
-# Ein Refresh erfolgt nur, wenn alle Werte von Home Assistant vorliegen:
-# sofort nach dem Start sobald alles da ist, danach alle 60s.
-# Fehlt ein Wert, bleibt das letzte gueltige Bild stehen.
+#  - Erstes Update: sobald alle Werte von Home Assistant gueltig vorliegen,
+#    spaetestens 60s nach dem Start.
+#  - Danach alle 60s, solange alle Werte gueltig sind.
+#  - Fehlt ein Wert in Home Assistant dauerhaft, wird nur alle 5 Minuten
+#    aktualisiert (dieser Wert zeigt dann "--", der Rest ist aktuell).
 interval:
   - interval: 5s
     then:
@@ -77,37 +79,44 @@ interval:
               - lambda: |-
                   if (!id(homeassistant_time).now().is_valid()) return false;
 
-                  // Zahlenwerte: muessen gueltig sein (nicht NaN)
-                  if (isnan(id(aussen_temp).state) ||
-                      isnan(id(soc_haus).state) ||
-                      isnan(id(soc_auto).state) ||
-                      isnan(id(pv_produktion).state) ||
-                      isnan(id(wallbox_power).state) ||
-                      isnan(id(wetter_temperatur).state) ||
-                      isnan(id(wetter_wind).state)) {
-                    ESP_LOGD("Display", "Warte auf Sensorwerte...");
-                    return false;
-                  }
+                  std::string missing;
+                  auto num = [&](float v, const char* name) {
+                    if (isnan(v)) { missing += name; missing += " "; }
+                  };
+                  auto got = [&](bool ok, const char* name) {
+                    if (!ok) { missing += name; missing += " "; }
+                  };
+                  num(id(aussen_temp).state, "aussen_temp");
+                  num(id(soc_haus).state, "soc_haus");
+                  num(id(soc_auto).state, "soc_auto");
+                  num(id(pv_produktion).state, "pv_produktion");
+                  num(id(wallbox_power).state, "wallbox_power");
+                  num(id(wetter_temperatur).state, "wetter_temperatur");
+                  num(id(wetter_wind).state, "wetter_wind");
+                  got(id(heizmodus).has_state(), "heizmodus");
+                  got(id(wetter_zustand).has_state(), "wetter_zustand");
+                  got(id(wetter_vorhersage).has_state(), "wetter_vorhersage");
+                  got(id(termin_1).has_state(), "termin_1");
+                  got(id(termin_2).has_state(), "termin_2");
+                  got(id(termin_3).has_state(), "termin_3");
+                  got(id(muellabfuhr).has_state(), "muellabfuhr");
+                  got(id(poolpumpe_an).has_state(), "poolpumpe_an");
+                  got(id(waermepumpe_an).has_state(), "waermepumpe_an");
+                  got(id(fenster_eg).has_state(), "fenster_eg");
+                  got(id(fenster_og).has_state(), "fenster_og");
 
-                  // Texte und Schaltzustaende: muessen empfangen worden sein
-                  if (!id(heizmodus).has_state() ||
-                      !id(wetter_zustand).has_state() ||
-                      !id(wetter_vorhersage).has_state() ||
-                      !id(termin_1).has_state() ||
-                      !id(termin_2).has_state() ||
-                      !id(termin_3).has_state() ||
-                      !id(muellabfuhr).has_state() ||
-                      !id(poolpumpe_an).has_state() ||
-                      !id(waermepumpe_an).has_state() ||
-                      !id(fenster_eg).has_state() ||
-                      !id(fenster_og).has_state()) {
-                    ESP_LOGD("Display", "Warte auf Text-/Statuswerte...");
-                    return false;
+                  const bool ready = missing.empty();
+                  bool due;
+                  if (!id(first_update_done)) {
+                    due = ready || millis() > 60000;
+                  } else {
+                    due = (millis() - id(last_update_ms)) >= (ready ? 60000u : 300000u);
                   }
-
-                  // Erstes Update sofort, danach hoechstens alle 60s
-                  return !id(first_update_done) ||
-                         (millis() - id(last_update_ms)) >= 60000;
+                  if (!ready) {
+                    if (due) ESP_LOGW("Display", "Update trotz fehlender Werte: %s", missing.c_str());
+                    else     ESP_LOGD("Display", "Warte auf: %s", missing.c_str());
+                  }
+                  return due;
           then:
             - script.execute: update_display
 

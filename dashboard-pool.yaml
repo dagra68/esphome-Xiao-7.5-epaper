@@ -54,8 +54,10 @@ script:
       - component.update: my_display
 
 # Das Display wird NICHT automatisch aktualisiert (update_interval: never).
-# Pro Wachphase gibt es genau einen Refresh, und nur wenn alle Werte von
-# Home Assistant vorliegen. Sonst bleibt das letzte gueltige Bild stehen.
+# Pro Wachphase gibt es genau einen Refresh:
+#  - sofort, sobald alle Werte von Home Assistant gueltig vorliegen
+#  - spaetestens nach 35s Wachzeit, falls ein Wert in Home Assistant
+#    dauerhaft fehlt (dieser zeigt dann "--", der Rest ist aktuell)
 interval:
   - interval: 2s
     then:
@@ -68,21 +70,31 @@ interval:
                   if (id(first_update_done)) return false;
                   if (!id(homeassistant_time).now().is_valid()) return false;
 
-                  // Zahlenwerte: muessen gueltig sein (nicht NaN)
-                  if (isnan(id(pool_temp).state) ||
-                      isnan(id(pool_redox).state) ||
-                      isnan(id(pool_ph).state) ||
-                      isnan(id(energie_pool_daily).state) ||
-                      isnan(id(aussen_temp).state) ||
-                      isnan(id(uv_wert).state) ||
-                      isnan(id(pv_produktion).state)) {
-                    ESP_LOGD("Display", "Warte auf Sensorwerte...");
-                    return false;
-                  }
+                  std::string missing;
+                  auto num = [&](float v, const char* name) {
+                    if (isnan(v)) { missing += name; missing += " "; }
+                  };
+                  auto got = [&](bool ok, const char* name) {
+                    if (!ok) { missing += name; missing += " "; }
+                  };
+                  num(id(pool_temp).state, "pool_temp");
+                  num(id(pool_redox).state, "pool_redox");
+                  num(id(pool_ph).state, "pool_ph");
+                  num(id(energie_pool_daily).state, "energie_pool_daily");
+                  num(id(aussen_temp).state, "aussen_temp");
+                  num(id(uv_wert).state, "uv_wert");
+                  num(id(pv_produktion).state, "pv_produktion");
+                  got(id(poolpumpe_an).has_state(), "poolpumpe_an");
+                  got(id(waermepumpe_an).has_state(), "waermepumpe_an");
 
-                  // Schaltzustaende: muessen empfangen worden sein
-                  return id(poolpumpe_an).has_state() &&
-                         id(waermepumpe_an).has_state();
+                  if (missing.empty()) return true;
+
+                  if (millis() > 35000) {
+                    ESP_LOGW("Display", "Update trotz fehlender Werte: %s", missing.c_str());
+                    return true;
+                  }
+                  ESP_LOGD("Display", "Warte auf: %s", missing.c_str());
+                  return false;
           then:
             - script.execute: update_display
   - interval: 59s
